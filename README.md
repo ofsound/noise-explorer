@@ -1,57 +1,65 @@
-![PAMPLEJUCE](assets/images/pamplejuce.png)
-[![](https://github.com/sudara/pamplejuce/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/sudara/pamplejuce/actions)
+# Noise Explorer
 
-Pamplejuce is a ~~template~~ lifestyle for creating and building JUCE plugins in 2026.
+A playable laboratory for noise, by **ofsound**. Move continuously from violet through blue, white, pink, and brown noise, sculpt a separate X/Y spectrum, and turn noise into notes with four resonant filters.
 
-Out-of-the-box, it:
+Built from the latest Pamplejuce starter checked into this repository, with JUCE **9.0.1** (the same pinned JUCE revision as Chord Runner), C++23, and a native JUCE interface.
 
-1. Runs C++23
-2. Uses JUCE 9.x as a git submodule (tracking develop).
-3. Uses CPM for dependency management.
-3. Relies on CMake 3.25 and higher for cross-platform building.
-4. Has [Catch2](https://github.com/catchorg/Catch2) v3.8.1 for the test framework and runner.
-5. Includes a `Tests` target and a `Benchmarks` target with examples to get started quickly.
-6. Has [Melatonin Inspector](https://github.com/sudara/melatonin_inspector) installed as a JUCE module to help relieve headaches when building plugin UI.
+## Play
 
-It also has integration with GitHub Actions, specifically:
+- **Continuous:** press **Play Noise**. Press **Stop Noise** to release the envelope.
+- **MIDI instrument:** choose the mode and play a MIDI controller or the on-screen keyboard. Click the keyboard to focus it, then use `A W S E D F T G Y H U J K` on the computer keyboard.
+- In the standalone app, select your audio device and MIDI inputs under **Options → Audio/MIDI Settings**.
+- In a DAW, load Noise Explorer as an **instrument** and route MIDI into its track. It generates its own audio and requires no audio input.
+- **Panic** immediately clears all voices. New instances and recalled sessions open quietly.
 
-1. Building and testing cross-platform (linux, macOS, Windows) binaries
-2. Running tests and benchmarks in CI
-3. Running [pluginval](http://github.com/tracktion/pluginval) 1.x against the binaries for plugin validation
-4. Config for [installing Intel IPP](https://www.intel.com/content/www/us/en/developer/tools/oneapi/ipp.html)
-5. [Code signing and notarization on macOS](https://melatonin.dev/blog/how-to-code-sign-and-notarize-macos-audio-plugins-in-ci/)
-6. [Windows code signing via Azure Trusted Signing](https://melatonin.dev/blog/code-signing-on-windows-with-azure-trusted-signing/)
+The eleven starting points include the five power-law colors, green and gray profiles, Glass Keys, Velvet Organ, Distant Ocean, and a scooped X/Y texture. Presets apply parameter values; edited values are saved in the host session or standalone settings.
 
-It also contains:
+## Sound design
 
-1. A `.gitignore` for all platforms.
-2. A `.clang-format` file for keeping code tidy.
-3. A `VERSION` file that will propagate through JUCE and your app.
-4. A ton of useful comments and options around the CMake config.
+**Color dial** sets a continuous spectral exponent from -2 (violet) through blue (-1), white (0), pink (1), to brown/red (2). The color buttons jump to these anchors. **Spectrum X/Y** is a separate selectable mode: horizontal movement changes tilt, vertical movement moves between a broad midrange scoop and focus. Green and gray are selectable spectral profiles.
 
-## How does this all work at a high level?
+All source shapes normalize automatically to the same expected RMS power. Changing color or X/Y position redistributes energy instead of adding source volumes. Noise peaks and perceived loudness can still vary; envelopes and filter effects remain audible. The live FFT shows the post-output signal; its dashed curve shows the selected **relative source shape**. See [the spectral model](docs/spectral-model.md) for formulas, finite-band limits, gray weighting, and legacy session migration.
 
-Check out the [official Pamplejuce documentation](https://melatonin.dev/manuals/pamplejuce/how-does-this-all-work/).
+Stereo Width moves from identical left/right channels to independent noise. Saturation adds soft drive. Output defaults to -18 dB and is softly bounded below full scale. Noise is stochastic: levels fluctuate naturally.
 
-[![Arc - 2024-10-01 51@2x](https://github.com/user-attachments/assets/01d19d2d-fbac-481f-8cec-e9325b2abe57)](https://melatonin.dev/manuals/pamplejuce/how-does-this-all-work/)
+The four filters operate **in parallel**, with enabled branches averaged together. With all four off, the source passes directly to the output. Every slot offers low pass, high pass, bell (±18 dB), notch, and resonator. The frequency/Q controls and response plots show the effect of each branch. High Q emphasizes a narrow band; bell gain is available in Bell mode.
 
-## Setting up for YOUR project
+**Resonator / MIDI** locks a branch's center frequency to the played note, A4 = 440 Hz, with ±2-semitone pitch bend. Frequency becomes read-only while following notes. Increase Q for a clearer pitch. Each resonator has independent attack, decay, sustain, and release controls. These envelopes shape each branch's amplitude; the master ADSR shapes the direct/classic-filter signal. Each voice remains active until all relevant tails finish.
 
-This is a template repo!
+MIDI mode provides eight voices, velocity response, per-channel sustain pedal, all-notes-off and all-sound-off support. Oldest voices are replaced at the polyphony limit. Continuous mode uses one voice, initially tuned to C4; incoming notes retune it while Play is active.
 
-That means you can click "[Use this template](https://github.com/sudara/pamplejuce/generate)" here or at the top of the page to get your own copy (not fork) of the repo. Then you can make it private or keep it public, up to you.
+## Build
 
-Then check out the [documentation](https://melatonin.dev/manuals/pamplejuce/setting-your-project-up/) so you know what to tweak.
+```sh
+git submodule update --init --recursive
+cmake -B Builds -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build Builds --parallel 4
+ctest --test-dir Builds --output-on-failure
+```
 
-**Using an AI coding agent?** The included `CLAUDE.md` / `AGENTS.md` has a first-time setup wizard — just ask your agent to set up the project and it will walk you through naming, CI configuration, and code signing.
+Formats: **Standalone, VST3, Audio Unit** (macOS). Identity: `com.ofsound.noiseexplorer`, manufacturer `Osnd`, plugin `Nexp`. The UI, custom icon, and audio engine are bundled locally; there is no web server or runtime network dependency.
 
-> [!NOTE]
-> Tests will immediately run and fail (go red) until you [set up code signing](https://melatonin.dev/manuals/pamplejuce/getting-started/code-signing/).
+Builds default to Debug for development. Use Release for music-making and CPU measurements:
 
-## Having Issues?
+```sh
+cmake -B Builds/Release -G Ninja -DCMAKE_BUILD_TYPE=Release -DNOISE_EXPLORER_COPY_PLUGINS=OFF
+cmake --build Builds/Release --parallel 4
+```
 
-Thanks to everyone who has contributed to the repository. 
+By default CMake copies plugins into user plugin folders. Disable with `-DNOISE_EXPLORER_COPY_PLUGINS=OFF`. Standalone output is in `Builds/NoiseExplorer_artefacts/Debug/Standalone/Noise Explorer.app`, or under `Builds/Release/NoiseExplorer_artefacts/Release/Standalone/` for Release.
 
-This repository covers a _lot_ of ground. JUCE itself has a lot of surface area. It's a group effort to maintain the garden and keep things nice!
+Install an already-built Release version for the current user:
 
-If something isn't just working out of the box — *it's probably not just you* — others are running into the problem, too, I promise. Check out [the official docs](https://melatonin.dev/manuals/pamplejuce), then please do [open an issue](https://github.com/sudara/pamplejuce/issues/new)!
+```sh
+./scripts/install-macos.sh
+```
+
+This installs the standalone into `~/Applications` and AU/VST3 into `~/Library/Audio/Plug-Ins`. Bundles receive ad-hoc local signatures after resources are embedded; no developer certificate is used.
+
+macOS development CI builds all formats and runs tests, without IPP or distribution signing/notarization. Local builds are for development; cross-platform builds are configured but have not been validated on Windows/Linux.
+
+## Verification
+
+Catch2 covers silence/start/stop, sample-accurate MIDI, sustain/channel isolation, independent resonator tails, high-Q polyphony at several sample rates, state recall and migration, fractional spectral slopes, RMS normalization across profiles and sample rates, spectrum sweeps, resonator tuning, and the UI keyboard queue. `./Builds/Tests '[.preview]'` writes a UI snapshot to `docs/noise-explorer-preview.png` for layout review.
+
+See [the contributor guide](CLAUDE.md) for architecture and realtime constraints, and [icon provenance](docs/icon.md) for the custom artwork.
